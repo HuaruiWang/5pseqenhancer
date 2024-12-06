@@ -1,0 +1,90 @@
+#!/bin/bash
+
+#
+show_help() {
+    echo "usage: fivepseqenhancer [OPTIONS]"
+    echo ""
+    echo "option:"
+    echo "  --ref_fasta    Reference genome fasta file"
+    echo "  --ref_gff      Reference genome gene annotation file (.gff/.gff3)"
+    echo "  --cog_csv      COG database files (.csv)"
+    echo "  --cog_tab      COG database files (.tab)"
+    echo "  --output       Output directory"
+    echo "  --bams"
+    echo "  --help         Display help information"
+}
+
+# 
+if [[ $# -eq 0 ]]; then
+    echo "Error : No parameters provided."
+    show_help
+    exit 1
+fi
+
+# 
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --ref_fasta)
+            ref_fasta="$2"
+            shift 2
+            ;;
+        --ref_gff)
+            ref_gff="$2"
+            shift 2
+            ;;
+        --cog_csv)
+            cog_csv="$2"
+            shift 2
+            ;;
+        --cog_tab)
+            cog_tab="$2"
+            shift 2
+            ;;
+        --bams)
+            bams="$2"
+            shift 2
+            ;;
+        --output)
+            output="$2"
+            shift 2
+            ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo "Unknown options: $1"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+
+mkdir -p $output/tmp/COG_gff
+mkdir -p $output/tmp/COG_i_gff
+
+
+Rscript /mnt/raid4/whr/2024_5pseq/fivepseqenhancer/src/COG_anno.R \
+  $ref_gff \
+  $cog_csv \
+  $cog_tab \
+  $output/tmp/COG_gff
+
+/mnt/raid4/whr/2024_5pseq/fivepseqenhancer/src/split.sh  \
+  $output/tmp/COG_gff/ref_cog.gff \
+  $output/tmp/COG_i_gff
+
+
+
+
+
+for i in {A..Z}
+do
+  fivepseq \
+     -g $ref_fasta \
+     -a $output/tmp/COG_i_gff/meta_${i}.gff \
+     -b $bams/*.bam \
+     -o $output \
+     -t result
+done
